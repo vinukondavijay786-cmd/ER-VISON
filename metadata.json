@@ -1,0 +1,6 @@
+{
+  "name": "ER Vision: Integrated Hospital Management & Patient Engagement Ecosystem",
+  "description": "ER Vision - Intelligent hospital management and patient engagement platform featuring clinical triage queues, AI symptom analysis, medical note generation, CDS, and bed management.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
