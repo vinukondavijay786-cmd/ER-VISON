@@ -12,12 +12,10 @@ import {
   ShieldCheck,
   ArrowRight,
   AlertCircle,
-  Phone,
   Sparkles,
   BedDouble,
   CheckCircle2,
   Clock,
-  Zap,
   FileText,
   TestTubes,
   ChevronDown,
@@ -49,57 +47,6 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({ onLoginSuccess }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showForgotModal, setShowForgotModal] = useState(false);
 
-  // Instant 1-Click Launch (Direct Session Sign-in)
-  const handleInstantLaunch = (targetRole: UserRole) => {
-    let emailToFind = 'sarah.patient@ervision.health';
-    if (targetRole === 'nurse') emailToFind = 'marcus.nurse@ervision.health';
-    if (targetRole === 'doctor') emailToFind = 'elena.doctor@ervision.health';
-
-    let user = storage.findUserByEmail(emailToFind);
-    if (!user) {
-      const all = storage.getUsers();
-      user = all.find((u) => u.role === targetRole);
-    }
-
-    if (user) {
-      storage.setSession({
-        user,
-        token: 'instant_token_' + Math.random().toString(36).substring(2),
-        loginAt: new Date().toISOString(),
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-      });
-      onLoginSuccess(user);
-    }
-  };
-
-  // Quick fill helper for manual form testing
-  const handleQuickFill = (targetRole: UserRole) => {
-    setMode('signup');
-    setRole(targetRole);
-    setErrorMessage(null);
-
-    if (targetRole === 'patient') {
-      setName('Sarah Connor');
-      setEmail('sarah.patient@ervision.health');
-      setPassword('ERVision2026!');
-      setDob('1992-04-18');
-      setBloodGroup('O+');
-      setEmergencyContact('(555) 234-8901');
-    } else if (targetRole === 'nurse') {
-      setName('Marcus Vance, RN');
-      setEmail('marcus.nurse@ervision.health');
-      setPassword('ERVision2026!');
-      setDepartment('Emergency Department - Triage Center');
-      setLicenseNumber('RN-74892');
-    } else if (targetRole === 'doctor') {
-      setName('Dr. Elena Rostova, MD');
-      setEmail('elena.doctor@ervision.health');
-      setPassword('ERVision2026!');
-      setSpecialty('Emergency Medicine & Trauma');
-      setLicenseNumber('MD-49821');
-    }
-  };
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
@@ -108,7 +55,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({ onLoginSuccess }) => {
     try {
       const user = storage.findUserByEmail(email.trim());
       if (!user) {
-        setErrorMessage('No registered account found with this email. Click "Create Account" or use the 1-click role quick-fill above.');
+        setErrorMessage('No registered account found with this email. Please check your credentials or click "Create Account".');
         setIsSubmitting(false);
         return;
       }
@@ -218,25 +165,15 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({ onLoginSuccess }) => {
               </span>
             </div>
             <p className="text-[10px] text-slate-400 hidden sm:block">
-              Integrated Emergency Care & Patient Ecosystem
+              Integrated Clinical Care & Patient Ecosystem
             </p>
           </div>
-        </div>
-
-        <div className="flex items-center space-x-3 text-xs">
-          <a
-            href="tel:911"
-            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 font-bold transition-colors shadow-xs"
-          >
-            <Phone className="h-3.5 w-3.5" />
-            <span>Emergency: 911</span>
-          </a>
         </div>
       </nav>
 
       {/* ================= SECTION 1: LOGIN BOX UPSIDE ================= */}
       <section className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 pt-8 pb-12">
-        <div className="text-center max-w-2xl mx-auto mb-6">
+        <div className="text-center max-w-2xl mx-auto mb-8">
           <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-sky-100/90 text-sky-800 border border-sky-200 text-xs font-bold mb-3 shadow-xs">
             <Sparkles className="h-3.5 w-3.5 text-sky-600" />
             <span>Intelligent Hospital Management & Clinical Triage</span>
@@ -245,95 +182,8 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({ onLoginSuccess }) => {
             Sign In to <span className="text-sky-600">ER Vision</span>
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-2">
-            Instant secure access to your clinical workspace. Click a role below for fast 1-click testing or enter your account credentials.
+            Instant secure access to your clinical workspace. Enter your registered credentials below.
           </p>
-        </div>
-
-        {/* 1-Click Fast Role Selectors (Upside for instant convenience) */}
-        <div className="max-w-xl mx-auto mb-6">
-          <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2 px-1">
-            <span className="flex items-center space-x-1">
-              <Zap className="h-3.5 w-3.5 text-amber-500" />
-              <span>Instant 1-Click Role Launch (Zero Typing):</span>
-            </span>
-            <span className="text-sky-600 font-semibold lowercase">instant session</span>
-          </div>
-          <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
-            <div
-              className={`p-3 sm:p-3.5 rounded-2xl border text-center transition-all flex flex-col justify-between ${
-                role === 'patient' && mode === 'signup'
-                  ? 'bg-emerald-50 border-emerald-400 ring-2 ring-emerald-200 shadow-sm'
-                  : 'bg-white border-slate-200/90 hover:border-emerald-300 shadow-xs'
-              }`}
-            >
-              <div>
-                <div className="h-8 w-8 rounded-xl bg-emerald-100/80 text-emerald-700 flex items-center justify-center mx-auto mb-1.5">
-                  <UserIcon className="h-4 w-4" />
-                </div>
-                <div className="text-xs font-bold text-slate-900">Patient</div>
-                <div className="text-[10px] text-slate-500 mt-0.5">Sarah Connor</div>
-              </div>
-              <button
-                type="button"
-                onClick={() => handleInstantLaunch('patient')}
-                className="mt-2.5 py-1 px-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] sm:text-[11px] shadow-xs cursor-pointer flex items-center justify-center space-x-1"
-                title="Launch directly into Patient Portal"
-              >
-                <Zap className="h-3 w-3" />
-                <span>Launch (1-Click)</span>
-              </button>
-            </div>
-
-            <div
-              className={`p-3 sm:p-3.5 rounded-2xl border text-center transition-all flex flex-col justify-between ${
-                role === 'nurse' && mode === 'signup'
-                  ? 'bg-amber-50 border-amber-400 ring-2 ring-amber-200 shadow-sm'
-                  : 'bg-white border-slate-200/90 hover:border-amber-300 shadow-xs'
-              }`}
-            >
-              <div>
-                <div className="h-8 w-8 rounded-xl bg-amber-100/80 text-amber-700 flex items-center justify-center mx-auto mb-1.5">
-                  <Activity className="h-4 w-4" />
-                </div>
-                <div className="text-xs font-bold text-slate-900">Triage Nurse</div>
-                <div className="text-[10px] text-slate-500 mt-0.5">Marcus Vance, RN</div>
-              </div>
-              <button
-                type="button"
-                onClick={() => handleInstantLaunch('nurse')}
-                className="mt-2.5 py-1 px-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-[10px] sm:text-[11px] shadow-xs cursor-pointer flex items-center justify-center space-x-1"
-                title="Launch directly into Triage Nurse Portal"
-              >
-                <Zap className="h-3 w-3" />
-                <span>Launch (1-Click)</span>
-              </button>
-            </div>
-
-            <div
-              className={`p-3 sm:p-3.5 rounded-2xl border text-center transition-all flex flex-col justify-between ${
-                role === 'doctor' && mode === 'signup'
-                  ? 'bg-sky-50 border-sky-400 ring-2 ring-sky-200 shadow-sm'
-                  : 'bg-white border-slate-200/90 hover:border-sky-300 shadow-xs'
-              }`}
-            >
-              <div>
-                <div className="h-8 w-8 rounded-xl bg-sky-100/80 text-sky-700 flex items-center justify-center mx-auto mb-1.5">
-                  <Stethoscope className="h-4 w-4" />
-                </div>
-                <div className="text-xs font-bold text-slate-900">Physician</div>
-                <div className="text-[10px] text-slate-500 mt-0.5">Dr. Elena Rostova</div>
-              </div>
-              <button
-                type="button"
-                onClick={() => handleInstantLaunch('doctor')}
-                className="mt-2.5 py-1 px-2 rounded-lg bg-sky-600 hover:bg-sky-700 text-white font-bold text-[10px] sm:text-[11px] shadow-xs cursor-pointer flex items-center justify-center space-x-1"
-                title="Launch directly into Physician Portal"
-              >
-                <Zap className="h-3 w-3" />
-                <span>Launch (1-Click)</span>
-              </button>
-            </div>
-          </div>
         </div>
 
         {/* The Authentication Card (Upside) */}
@@ -605,10 +455,14 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({ onLoginSuccess }) => {
                       onChange={(e) => setBloodGroup(e.target.value)}
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl px-1.5 py-1 text-xs text-slate-900"
                     >
-                      <option value="A+">A+</option>
-                      <option value="B+">B+</option>
-                      <option value="O+">O+</option>
-                      <option value="AB+">AB+</option>
+                      <option value="A+">A+ (Positive)</option>
+                      <option value="A-">A- (Negative)</option>
+                      <option value="B+">B+ (Positive)</option>
+                      <option value="B-">B- (Negative)</option>
+                      <option value="O+">O+ (Positive)</option>
+                      <option value="O-">O- (Negative)</option>
+                      <option value="AB+">AB+ (Positive)</option>
+                      <option value="AB-">AB- (Negative)</option>
                     </select>
                   </div>
                   <div>
@@ -653,7 +507,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({ onLoginSuccess }) => {
               About ER Vision Hospital OS
             </h2>
             <p className="text-sm text-slate-600 leading-relaxed">
-              ER Vision bridges the gap between patient emergency self-assessment, triage nurse acuity prioritization, and physician clinical decision support using real-time browser storage and clinical AI.
+              ER Vision bridges the gap between patient clinical self-assessment, triage nurse acuity prioritization, and physician clinical decision support using real-time browser storage and clinical AI.
             </p>
           </div>
 
@@ -666,7 +520,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({ onLoginSuccess }) => {
               </div>
               <h3 className="text-base font-bold text-slate-900">1. Patient Portal</h3>
               <p className="text-xs text-slate-600 leading-relaxed">
-                Empowers patients with natural language AI symptom checking, automated emergency red-flag identification, specialist appointment scheduling, and plain-English medical summaries.
+                Empowers patients with natural language AI symptom checking, automated clinical red-flag identification, specialist appointment scheduling, and plain-English medical summaries.
               </p>
               <ul className="space-y-1.5 text-xs text-slate-700 pt-2 border-t border-slate-100">
                 <li className="flex items-center space-x-2">
@@ -739,7 +593,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({ onLoginSuccess }) => {
           <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm">
             <h3 className="text-base font-bold text-slate-900 mb-1 flex items-center space-x-2">
               <Layers className="h-4 w-4 text-sky-600" />
-              <span>How It Works: Connected Emergency Journey</span>
+              <span>How It Works: Connected Patient Care Journey</span>
             </h3>
             <p className="text-xs text-slate-500 mb-6">
               Experience the end-to-end hospital workflow without confusion.
@@ -773,14 +627,14 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({ onLoginSuccess }) => {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-2">
             <div className="bg-white p-4 rounded-2xl border border-slate-200 text-center shadow-xs">
               <span className="text-2xl font-black text-sky-600">ESI 1-5</span>
-              <p className="text-xs text-slate-500 mt-0.5">Emergency Severity Index</p>
+              <p className="text-xs text-slate-500 mt-0.5">Clinical Acuity Protocol</p>
             </div>
             <div className="bg-white p-4 rounded-2xl border border-slate-200 text-center shadow-xs">
               <span className="text-2xl font-black text-emerald-600">100%</span>
               <p className="text-xs text-slate-500 mt-0.5">Client Browser Storage</p>
             </div>
             <div className="bg-white p-4 rounded-2xl border border-slate-200 text-center shadow-xs">
-              <span className="text-2xl font-black text-indigo-600">Gemini</span>
+              <span className="text-2xl font-black text-indigo-600">Clinical AI</span>
               <p className="text-xs text-slate-500 mt-0.5">Clinical Reasoning AI</p>
             </div>
             <div className="bg-white p-4 rounded-2xl border border-slate-200 text-center shadow-xs">
@@ -793,7 +647,7 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({ onLoginSuccess }) => {
 
       {/* Footer */}
       <footer className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-5 border-t border-slate-200 text-xs text-slate-500 flex flex-col sm:flex-row items-center justify-between gap-3 bg-white">
-        <p>© 2026 ER Vision Hospital OS. Grounded in Emergency Severity Index standards.</p>
+        <p>© 2026 ER Vision Hospital OS. Grounded in clinical triage standards.</p>
         <div className="flex items-center space-x-4">
           <span>Triage ESI v4</span>
           <span>·</span>

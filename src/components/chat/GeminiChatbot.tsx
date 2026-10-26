@@ -125,7 +125,7 @@ export const GeminiChatbot: React.FC<GeminiChatbotProps> = ({ user, isOpen, onCl
       const initialGreeting: ChatMessage = {
         id: 'msg_welcome',
         role: 'model',
-        content: `Hello ${user.name}! I am your **${currentPersona.title}**, powered by Google Gemini AI. How can I assist you with clinical protocols, health queries, or care coordination today?`,
+        content: `Hello ${user.name}! I am your **${currentPersona.title}**, powered by advanced Clinical AI. How can I assist you with clinical protocols, health queries, or care coordination today?`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
       setMessages([initialGreeting]);
@@ -224,7 +224,7 @@ export const GeminiChatbot: React.FC<GeminiChatbotProps> = ({ user, isOpen, onCl
             <div className="flex items-center space-x-1.5">
               <h3 className="text-xs font-bold text-slate-900 tracking-wide">PulseCare AI Copilot</h3>
               <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-purple-100 text-purple-800 border border-purple-200">
-                Gemini
+                Clinical AI
               </span>
             </div>
             <p className="text-[11px] text-slate-500 truncate max-w-[210px]">
@@ -237,7 +237,7 @@ export const GeminiChatbot: React.FC<GeminiChatbotProps> = ({ user, isOpen, onCl
           {/* Speed Model Switcher */}
           <button
             onClick={() => setModelSpeed(modelSpeed === 'standard' ? 'fast' : 'standard')}
-            title={`Active: ${modelSpeed === 'standard' ? 'gemini-3.8-flash (Standard Deep Reasoning)' : 'gemini-3.1-flash-lite (Fast Tasks)'}`}
+            title={`Active: ${modelSpeed === 'standard' ? 'Standard Deep Reasoning' : 'Fast Lite'}`}
             className="px-2 py-1 rounded-lg bg-white hover:bg-slate-100 text-[10px] font-bold text-slate-700 flex items-center space-x-1 border border-slate-200 shadow-xs"
           >
             <Zap className={`h-3 w-3 ${modelSpeed === 'fast' ? 'text-amber-500' : 'text-sky-600'}`} />
@@ -346,7 +346,7 @@ export const GeminiChatbot: React.FC<GeminiChatbotProps> = ({ user, isOpen, onCl
                 <div className="h-1.5 w-1.5 bg-purple-500 rounded-full animate-bounce [animation-delay:-0.15s]" />
                 <div className="h-1.5 w-1.5 bg-teal-500 rounded-full animate-bounce" />
               </div>
-              <span className="text-[11px] font-medium">Consulting Gemini medical reasoning...</span>
+              <span className="text-[11px] font-medium">Consulting clinical AI reasoning...</span>
             </div>
           </div>
         )}

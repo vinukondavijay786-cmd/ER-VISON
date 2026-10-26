@@ -80,7 +80,7 @@ export const Header: React.FC<HeaderProps> = ({
                 </span>
               </div>
               <p className="text-xs text-slate-500 hidden sm:block">
-                Emergency Care & Hospital Intelligence Ecosystem
+                Clinical Care & Hospital Intelligence Ecosystem
               </p>
             </div>
           </div>

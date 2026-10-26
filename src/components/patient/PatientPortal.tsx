@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { User, Appointment, DoctorClinicalNote, LabOrder, PrescriptionItem } from '../../types';
 import { storage } from '../../services/storage';
 import { aiService, SymptomCheckResult, HealthSummaryResult, MedicationExplanationResult } from '../../services/aiService';
+import { VitalsTrendsChart } from './VitalsTrendsChart';
 import {
   Activity,
   Calendar,
@@ -37,7 +38,7 @@ interface PatientPortalProps {
 }
 
 export const PatientPortal: React.FC<PatientPortalProps> = ({ user }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'symptom_checker' | 'appointments' | 'records' | 'prescriptions'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'vitals_trends' | 'symptom_checker' | 'appointments' | 'records' | 'prescriptions'>('overview');
 
   // Appointments
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -192,11 +193,15 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({ user }) => {
     });
 
     sortedUserLabs.forEach((l) => {
-      const testRoot = l.testName
-        .toLowerCase()
-        .replace(/stat|\&|12-lead|high-sensitivity|hs-ctni|troponin/gi, 'troponin')
-        .replace(/[^a-z0-9]/g, '')
-        .trim();
+      let testRoot = l.testName.toLowerCase().replace(/\b(stat|urgent|routine)\b/gi, '').trim();
+      if (/troponin|hs-ctni/i.test(testRoot)) testRoot = 'troponin';
+      else if (/ecg|electrocardiogram/i.test(testRoot)) testRoot = 'ecg';
+      else if (/cbc|complete blood count/i.test(testRoot)) testRoot = 'cbc';
+      else if (/bmp|basic metabolic/i.test(testRoot)) testRoot = 'bmp';
+      else if (/lactate/i.test(testRoot)) testRoot = 'lactate';
+      else {
+        testRoot = testRoot.replace(/[^a-z0-9]/g, '');
+      }
 
       if (!seenTestRoots.has(testRoot)) {
         seenTestRoots.add(testRoot);
@@ -497,6 +502,25 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({ user }) => {
     } catch {
       // storage quota or disabled
     }
+
+    // Also persist into unified storage manager for historical trends
+    try {
+      storage.savePatientVitalRecord(user.id, {
+        systolicBP: sys,
+        diastolicBP: dia,
+        heartRate: Number(logHeartRate),
+        bloodSugar: Number(logBloodSugar),
+        temperature: Number(logTemp),
+        o2Sat: 98,
+        respRate: 16,
+        source: 'patient_log',
+        status: status.toLowerCase().includes('optimal') ? 'optimal' : 'elevated',
+        notes: 'Logged via Quick Vitals',
+      });
+    } catch {
+      // ignore
+    }
+
     setShowVitalsModal(false);
   };
 
@@ -632,6 +656,18 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({ user }) => {
             </button>
 
             <button
+              onClick={() => setActiveTab('vitals_trends')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center space-x-2 ${
+                activeTab === 'vitals_trends'
+                  ? 'bg-rose-50 text-rose-800 border border-rose-300 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              }`}
+            >
+              <Activity className="h-4 w-4 text-rose-600" />
+              <span>Vitals Trends & Charts</span>
+            </button>
+
+            <button
               onClick={() => setActiveTab('symptom_checker')}
               className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center space-x-2 ${
                 activeTab === 'symptom_checker'
@@ -699,7 +735,7 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({ user }) => {
                     Welcome back, {user.name}
                   </h2>
                   <p className="text-sm text-slate-600 max-w-2xl leading-relaxed">
-                    Check your symptoms with Gemini AI, book hospital specialist visits, and review clear plain-English health summaries.
+                    Check your symptoms with Clinical AI, book hospital specialist visits, and review clear plain-English health summaries.
                   </p>
                 </div>
 
@@ -824,19 +860,40 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({ user }) => {
                       <strong className="text-sm font-black text-slate-900">{vitalsHistory[0].temp} °F</strong>
                     </div>
                   </div>
+                  <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between">
+                    <span className="text-[11px] text-slate-500 font-medium">
+                      Physiological baseline & multi-day trends
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('vitals_trends')}
+                      className="text-xs font-bold text-sky-600 hover:text-sky-800 flex items-center space-x-1 cursor-pointer"
+                    >
+                      <span>Explore Interactive Trends & Charts</span>
+                      <ArrowRight className="h-3.5 w-3.5 ml-0.5" />
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <div className="mb-5 bg-white/80 p-3.5 rounded-2xl border border-dashed border-sky-200 text-xs text-slate-600 flex items-center justify-between">
                   <span className="flex items-center space-x-2">
                     <Thermometer className="h-4 w-4 text-sky-600" />
-                    <span>No vitals recorded today. Click &quot;Log Today's Vitals&quot; to track your BP & pulse.</span>
+                    <span>No vitals recorded today. Click &quot;Log Today&apos;s Vitals&quot; to track your BP & pulse.</span>
                   </span>
-                  <button
-                    onClick={() => setShowVitalsModal(true)}
-                    className="text-sky-600 hover:text-sky-700 font-bold underline ml-2"
-                  >
-                    Log now →
-                  </button>
+                  <div className="flex items-center space-x-3">
+                    <button
+                      onClick={() => setShowVitalsModal(true)}
+                      className="text-sky-600 hover:text-sky-700 font-bold underline"
+                    >
+                      Log now →
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('vitals_trends')}
+                      className="text-rose-600 hover:text-rose-700 font-bold text-xs"
+                    >
+                      View Chart History →
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -1204,6 +1261,22 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({ user }) => {
                 )}
               </div>
             </div>
+
+            {/* Visual Health Trends & Vitals Line Chart in Dashboard */}
+            <VitalsTrendsChart
+              user={user}
+              onOpenLogModal={() => setShowVitalsModal(true)}
+            />
+          </div>
+        )}
+
+        {/* ===================== TAB: VITALS TRENDS & CHARTS ===================== */}
+        {activeTab === 'vitals_trends' && (
+          <div className="space-y-6">
+            <VitalsTrendsChart
+              user={user}
+              onOpenLogModal={() => setShowVitalsModal(true)}
+            />
           </div>
         )}
 
@@ -1279,7 +1352,7 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({ user }) => {
                         }}
                         className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg text-[10px] font-bold border border-rose-200"
                       >
-                        Chest Pressure (Emergency)
+                        Severe Chest Pressure
                       </button>
                       <button
                         type="button"
@@ -1362,7 +1435,7 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({ user }) => {
                           className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-colors shadow-xs flex items-center space-x-1.5"
                         >
                           <Phone className="h-4 w-4" />
-                          <span>Call 911 / ER</span>
+                          <span>Call 911 Hotline</span>
                         </a>
                       ) : (
                         <button
@@ -1581,9 +1654,9 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({ user }) => {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {clinicalNotes.map((note) => (
+                  {clinicalNotes.map((note, idx) => (
                     <div
-                      key={note.id}
+                      key={`${note.id}_${idx}`}
                       className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-3"
                     >
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-200 gap-2">
@@ -1643,9 +1716,9 @@ export const PatientPortal: React.FC<PatientPortalProps> = ({ user }) => {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {labOrders.map((lab) => (
+                  {labOrders.map((lab, idx) => (
                     <div
-                      key={lab.id}
+                      key={`${lab.id}_${idx}`}
                       className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                     >
                       <div>

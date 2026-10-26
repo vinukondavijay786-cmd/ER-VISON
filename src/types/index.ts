@@ -188,3 +188,20 @@ export interface AuthSession {
   loginAt: string;
   expiresAt?: string;
 }
+
+export interface PatientVitalRecord {
+  id: string;
+  timestamp: string;
+  dateLabel: string;
+  timeLabel: string;
+  heartRate: number;
+  systolicBP: number;
+  diastolicBP: number;
+  o2Sat: number;
+  temperature: number;
+  bloodSugar: number;
+  respRate: number;
+  source: 'hospital' | 'patient_log' | 'wearable';
+  status: 'optimal' | 'elevated' | 'high' | 'low';
+  notes?: string;
+}

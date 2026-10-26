@@ -70,12 +70,12 @@ export default function App() {
         {currentUser.role === 'doctor' && <DoctorPortal user={currentUser} />}
       </main>
 
-      {/* Floating Gemini Chatbot Launcher Button */}
+      {/* Floating Clinical AI Chatbot Launcher Button */}
       {!isChatOpen && (
         <button
           onClick={() => setIsChatOpen(true)}
           className="fixed bottom-5 right-5 z-40 px-4 py-3 rounded-2xl bg-gradient-to-r from-sky-600 via-teal-600 to-indigo-600 hover:from-sky-700 hover:to-indigo-700 text-white shadow-lg shadow-sky-600/20 flex items-center space-x-2.5 transition-all transform hover:scale-105 group border border-white/20"
-          title="Open Gemini AI Clinical & Care Assistant"
+          title="Open AI Clinical & Care Assistant"
         >
           <div className="relative">
             <Bot className="h-5 w-5" />
@@ -90,13 +90,13 @@ export default function App() {
               <Sparkles className="h-3 w-3 text-sky-200 inline" />
             </div>
             <div className="text-[10px] text-sky-100 leading-tight">
-              Gemini Powered
+              Clinical Assistant
             </div>
           </div>
         </button>
       )}
 
-      {/* Multi-turn Gemini Chatbot Component */}
+      {/* Multi-turn Clinical AI Chatbot Component */}
       <GeminiChatbot
         user={currentUser}
         isOpen={isChatOpen}

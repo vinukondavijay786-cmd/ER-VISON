@@ -11,6 +11,8 @@ import {
   aiService,
   ClinicalCdsResult,
   MedicalNoteResult,
+  PatientTreatmentPlan,
+  DoctorConsultResult,
 } from '../../services/aiService';
 import {
   Stethoscope,
@@ -34,6 +36,9 @@ import {
   Printer,
   Pill,
   Heart,
+  Send,
+  ShieldCheck,
+  CheckSquare,
 } from 'lucide-react';
 
 interface DoctorPortalProps {
@@ -52,6 +57,14 @@ export const DoctorPortal: React.FC<DoctorPortalProps> = ({ user }) => {
   const [signedNotes, setSignedNotes] = useState<DoctorClinicalNote[]>([]);
   const [notesSearchQuery, setNotesSearchQuery] = useState('');
   const [expandedNoteId, setExpandedNoteId] = useState<string | null>(null);
+
+  // AI Clinical Treatment Plan ("What To Do For The Patient") State
+  const [treatmentPlan, setTreatmentPlan] = useState<PatientTreatmentPlan | null>(null);
+  const [isLoadingPlan, setIsLoadingPlan] = useState(false);
+  const [planAppliedSuccess, setPlanAppliedSuccess] = useState(false);
+  const [consultQuery, setConsultQuery] = useState('');
+  const [consultAnswer, setConsultAnswer] = useState<DoctorConsultResult | null>(null);
+  const [isConsulting, setIsConsulting] = useState(false);
 
   // AI Clinical Decision Support (CDS) State
   const [cdsResult, setCdsResult] = useState<ClinicalCdsResult | null>(null);
@@ -86,6 +99,161 @@ export const DoctorPortal: React.FC<DoctorPortalProps> = ({ user }) => {
   // Status Notification
   const [signedSuccess, setSignedSuccess] = useState(false);
 
+  // Generate AI Treatment Plan for the patient's problem
+  const handleGenerateTreatmentPlan = async (patientToAnalyze?: PatientRecord) => {
+    const p = patientToAnalyze || selectedPatient;
+    if (!p) return;
+    setIsLoadingPlan(true);
+    setPlanAppliedSuccess(false);
+
+    try {
+      const plan = await aiService.getPatientTreatmentPlan({
+        patient: p,
+        chiefComplaint: p.chiefComplaint,
+        vitals: p.currentVitals,
+        allergies: p.allergies,
+        medicalHistory: p.medicalHistory,
+        currentMeds: proposedMedInput ? proposedMedInput.split(',').map((s) => s.trim()) : [],
+        userId: user.id,
+      });
+
+      setTreatmentPlan(plan);
+    } catch (err) {
+      console.warn('Failed to generate treatment plan:', err);
+    } finally {
+      setIsLoadingPlan(false);
+    }
+  };
+
+  // 1-Click Order All Recommended Diagnostic Tests
+  const handle1ClickOrderAllTests = (tests: PatientTreatmentPlan['recommendedOrders']) => {
+    if (!selectedPatient || !tests || tests.length === 0) return;
+    tests.forEach((test) => {
+      const newOrder: LabOrder = {
+        id: 'ord_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 7),
+        patientId: selectedPatient.id,
+        patientMrn: selectedPatient.mrn,
+        patientName: selectedPatient.fullName,
+        doctorId: user.id,
+        doctorName: user.name,
+        testName: test.testName,
+        category: test.category as any,
+        priority: test.priority,
+        status: 'ordered',
+        orderedAt: new Date().toISOString(),
+      };
+      storage.saveLabOrder(newOrder);
+    });
+    setAllLabOrders(storage.getLabOrders());
+  };
+
+  // Order single recommended test
+  const handleOrderSingleTest = (test: PatientTreatmentPlan['recommendedOrders'][0]) => {
+    if (!selectedPatient) return;
+    const newOrder: LabOrder = {
+      id: 'ord_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 7),
+      patientId: selectedPatient.id,
+      patientMrn: selectedPatient.mrn,
+      patientName: selectedPatient.fullName,
+      doctorId: user.id,
+      doctorName: user.name,
+      testName: test.testName,
+      category: test.category as any,
+      priority: test.priority,
+      status: 'ordered',
+      orderedAt: new Date().toISOString(),
+    };
+    storage.saveLabOrder(newOrder);
+    setAllLabOrders(storage.getLabOrders());
+  };
+
+  // 1-Click Add All Recommended Medications to Prescription List
+  const handle1ClickAddAllMedications = (meds: PatientTreatmentPlan['recommendedMedications']) => {
+    if (!meds || meds.length === 0) return;
+    setPrescriptionsList((prev) => {
+      const updated = [...prev];
+      meds.forEach((m) => {
+        const alreadyExists = updated.some(
+          (p) => p.medication.trim().toLowerCase() === m.medication.trim().toLowerCase()
+        );
+        if (!alreadyExists) {
+          updated.push({
+            id: 'rx_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 7),
+            medication: m.medication,
+            dosage: m.dosage,
+            frequency: m.frequency,
+            route: m.route,
+            duration: m.duration,
+            instructions: m.instructions,
+            precautions: m.precautions,
+          });
+        }
+      });
+      return updated;
+    });
+  };
+
+  // Add single recommended medication
+  const handleAddSingleMedication = (m: PatientTreatmentPlan['recommendedMedications'][0]) => {
+    setPrescriptionsList((prev) => {
+      const alreadyExists = prev.some(
+        (p) => p.medication.trim().toLowerCase() === m.medication.trim().toLowerCase()
+      );
+      if (alreadyExists) return prev;
+      return [
+        ...prev,
+        {
+          id: 'rx_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 7),
+          medication: m.medication,
+          dosage: m.dosage,
+          frequency: m.frequency,
+          route: m.route,
+          duration: m.duration,
+          instructions: m.instructions,
+          precautions: m.precautions,
+        },
+      ];
+    });
+  };
+
+  // 1-Click Apply AI Care Plan to SOAP Documentation & Prescriptions
+  const handleApplyPlanToSOAP = () => {
+    if (!treatmentPlan) return;
+    setSoapSubjective(treatmentPlan.soapDraft.subjective);
+    setSoapObjective(treatmentPlan.soapDraft.objective);
+    setSoapAssessment(treatmentPlan.soapDraft.assessment);
+    setSoapPlan(treatmentPlan.soapDraft.plan);
+    setDischargeInstructions(treatmentPlan.counselingAndDischargeAdvice);
+    if (treatmentPlan.recommendedMedications && treatmentPlan.recommendedMedications.length > 0) {
+      handle1ClickAddAllMedications(treatmentPlan.recommendedMedications);
+    }
+    setPlanAppliedSuccess(true);
+  };
+
+  // Interactive Doctor Consult Query
+  const handleDoctorConsult = async (e?: React.FormEvent, customQuestion?: string) => {
+    if (e) e.preventDefault();
+    const q = (customQuestion || consultQuery).trim();
+    if (!selectedPatient || !q) return;
+    setIsConsulting(true);
+    try {
+      const res = await aiService.askDoctorConsult({
+        patient: selectedPatient,
+        question: q,
+        vitals: selectedPatient.currentVitals,
+        allergies: selectedPatient.allergies,
+        medicalHistory: selectedPatient.medicalHistory,
+        userId: user.id,
+      });
+      setConsultAnswer(res);
+      setConsultQuery(q);
+    } catch (err) {
+      console.warn('Consult error:', err);
+    } finally {
+      setIsConsulting(false);
+    }
+  };
+
   const loadData = () => {
     const loadedPatients = storage.getPatients();
     // Sort by priority heap score descending
@@ -107,15 +275,21 @@ export const DoctorPortal: React.FC<DoctorPortalProps> = ({ user }) => {
   }, []);
 
   useEffect(() => {
-    if (selectedPatient) {
+    const currentP = patients.find((p) => p.id === selectedPatientId);
+    if (currentP) {
       setCdsResult(null);
       setGeneratedNotes(null);
       setSignedSuccess(false);
+      setPlanAppliedSuccess(false);
+      setConsultAnswer(null);
+      setConsultQuery('');
       setShorthandNotes(
-        `${selectedPatient.fullName}, presented with ${selectedPatient.chiefComplaint}. Vitals: HR ${selectedPatient.currentVitals.heartRate}, BP ${selectedPatient.currentVitals.systolicBP}/${selectedPatient.currentVitals.diastolicBP}. Exam shows acute distress requiring structured clinical intervention.`
+        `${currentP.fullName}, presented with ${currentP.chiefComplaint}. Vitals: HR ${currentP.currentVitals.heartRate}, BP ${currentP.currentVitals.systolicBP}/${currentP.currentVitals.diastolicBP}. Exam shows acute distress requiring structured clinical intervention.`
       );
+      // Auto-generate AI treatment plan for patient presentation
+      handleGenerateTreatmentPlan(currentP);
     }
-  }, [selectedPatientId]);
+  }, [selectedPatientId, patients.length]);
 
   // Run AI Clinical Decision Support (CDS)
   const handleRunCDS = async () => {
@@ -790,12 +964,27 @@ export const DoctorPortal: React.FC<DoctorPortalProps> = ({ user }) => {
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation();
+                              setSelectedPatientId(patient.id);
+                              setActiveTab('chart');
+                              handleGenerateTreatmentPlan(patient);
+                            }}
+                            className="px-2.5 py-1 rounded-xl bg-gradient-to-r from-teal-600 to-sky-600 hover:from-teal-700 hover:to-sky-700 text-white text-xs font-bold flex items-center space-x-1 transition-all shadow-xs cursor-pointer"
+                            title="Open chart and get immediate AI suggestions on what to do for this patient's problem"
+                          >
+                            <Sparkles className="h-3 w-3" />
+                            <span>What To Do (AI Plan)</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
                               handle1ClickDirectCDS(patient);
                             }}
                             className="px-2.5 py-1 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 text-xs font-bold flex items-center space-x-1 transition-colors cursor-pointer"
                           >
-                            <Sparkles className="h-3 w-3" />
-                            <span>AI CDS (1-Click)</span>
+                            <Activity className="h-3 w-3" />
+                            <span>AI CDS</span>
                           </button>
 
                           <span className="text-sky-600 font-bold flex items-center space-x-1 pl-1">
@@ -920,15 +1109,432 @@ export const DoctorPortal: React.FC<DoctorPortalProps> = ({ user }) => {
                   </div>
                 </div>
 
+                {/* ===================== PRIMARY: AI CLINICAL CARE PROTOCOL ("WHAT TO DO FOR THIS PATIENT") ===================== */}
+                <div className="bg-gradient-to-b from-white to-sky-50/40 border-2 border-teal-500/30 rounded-3xl p-6 sm:p-7 shadow-md relative overflow-hidden space-y-6">
+                  {/* Subtle background glow */}
+                  <div className="absolute top-0 right-0 w-96 h-96 bg-teal-400/5 rounded-full blur-3xl pointer-events-none" />
+
+                  {/* Header Bar */}
+                  <div className="flex flex-col lg:flex-row lg:items-center justify-between pb-5 border-b border-slate-200 gap-4">
+                    <div className="flex items-start sm:items-center space-x-3.5">
+                      <div className="h-12 w-12 rounded-2xl bg-gradient-to-tr from-teal-600 via-sky-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-teal-600/20 shrink-0">
+                        <Sparkles className="h-6 w-6 animate-pulse" />
+                      </div>
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2 mb-1">
+                          <span className="text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-full bg-teal-100 text-teal-800 border border-teal-200">
+                            AI Clinical Care Protocol
+                          </span>
+                          {treatmentPlan && (
+                            <span
+                              className={`text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-full border ${
+                                treatmentPlan.urgencyLevel === 'Emergency' || treatmentPlan.urgencyLevel === 'High Urgency'
+                                  ? 'bg-rose-50 text-rose-800 border-rose-200'
+                                  : 'bg-amber-50 text-amber-800 border-amber-200'
+                              }`}
+                            >
+                              Acuity: {treatmentPlan.urgencyLevel}
+                            </span>
+                          )}
+                        </div>
+                        <h3 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">
+                          What To Do for {selectedPatient.fullName}
+                        </h3>
+                        <p className="text-xs text-slate-600 font-medium">
+                          Clinical problem presented to doctor:{' '}
+                          <span className="font-bold text-teal-800 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
+                            &ldquo;{selectedPatient.chiefComplaint}&rdquo;
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={handleApplyPlanToSOAP}
+                        disabled={!treatmentPlan || isLoadingPlan}
+                        className="py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-xs shadow-sm shadow-emerald-600/20 flex items-center space-x-2 transition-all cursor-pointer disabled:opacity-40"
+                        title="Directly load the AI recommended treatment plan and medications into your SOAP documentation"
+                      >
+                        <CheckSquare className="h-4 w-4" />
+                        <span>Apply AI Plan to SOAP & Orders (1-Click)</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleGenerateTreatmentPlan(selectedPatient)}
+                        disabled={isLoadingPlan}
+                        className="py-2.5 px-3 rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 font-bold text-xs flex items-center space-x-1.5 transition-colors cursor-pointer shadow-xs disabled:opacity-40"
+                        title="Re-run AI clinical recommendation engine for this patient"
+                      >
+                        <RefreshCw className={`h-3.5 w-3.5 ${isLoadingPlan ? 'animate-spin text-teal-600' : ''}`} />
+                        <span>{isLoadingPlan ? 'Synthesizing...' : 'Re-Analyze'}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Plan Applied Alert */}
+                  {planAppliedSuccess && (
+                    <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-300 text-emerald-900 flex items-center justify-between text-xs font-semibold shadow-xs animate-in fade-in">
+                      <div className="flex items-center space-x-2.5">
+                        <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
+                        <span>
+                          AI Care Plan has been successfully applied to your SOAP note fields and prescription list below! You can review or customize any field before signing.
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => setPlanAppliedSuccess(false)}
+                        className="p-1 rounded-lg text-emerald-700 hover:bg-emerald-100 cursor-pointer"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Loading State */}
+                  {isLoadingPlan && !treatmentPlan && (
+                    <div className="py-12 bg-white rounded-2xl border border-slate-200 text-center space-y-3">
+                      <div className="h-8 w-8 border-3 border-teal-600 border-t-transparent rounded-full animate-spin mx-auto" />
+                      <div className="text-sm font-bold text-slate-900">
+                        Synthesizing Clinical Treatment Protocol...
+                      </div>
+                      <p className="text-xs text-slate-500 max-w-md mx-auto">
+                        Evaluating presenting problem (&ldquo;{selectedPatient.chiefComplaint}&rdquo;), vital signs, and allergy constraints to generate tailored clinical directives.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Plan Content */}
+                  {treatmentPlan && (
+                    <div className="space-y-6">
+                      {/* Clinical Summary Banner */}
+                      <div className="p-4 rounded-2xl bg-white border border-teal-200/80 shadow-xs">
+                        <div className="text-[11px] font-bold text-teal-800 uppercase tracking-wider mb-1 flex items-center space-x-1.5">
+                          <Activity className="h-3.5 w-3.5" />
+                          <span>Clinical Presentation & Problem Assessment</span>
+                        </div>
+                        <p className="text-xs sm:text-sm text-slate-800 leading-relaxed font-medium">
+                          {treatmentPlan.chiefComplaintSummary}
+                        </p>
+                      </div>
+
+                      {/* 1. Immediate Bedside & Stabilization Steps */}
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center space-x-2">
+                            <span className="h-5 w-5 rounded-full bg-slate-900 text-white text-[11px] flex items-center justify-center font-bold">1</span>
+                            <span>Immediate Bedside Steps (&ldquo;What To Do Right Now&rdquo;)</span>
+                          </h4>
+                          <span className="text-[11px] text-slate-500">Chronological Priority</span>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {treatmentPlan.immediateActions.map((action, i) => (
+                            <div
+                              key={i}
+                              className="p-3.5 rounded-2xl bg-white border border-slate-200 shadow-xs flex items-start space-x-3 hover:border-teal-300 transition-colors"
+                            >
+                              <div className="h-7 w-7 rounded-xl bg-teal-50 border border-teal-200 text-teal-700 flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">
+                                {action.priority || i + 1}
+                              </div>
+                              <div className="flex-1">
+                                <div className="flex items-center justify-between gap-1 mb-1">
+                                  <span className="text-xs font-bold text-slate-900">{action.title}</span>
+                                  <span className="text-[9px] uppercase font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                                    {action.category}
+                                  </span>
+                                </div>
+                                <p className="text-[11px] text-slate-600 leading-relaxed">
+                                  {action.description}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* 2. Recommended Diagnostic Workup & Orders */}
+                      <div className="space-y-3 pt-2">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center space-x-2">
+                            <span className="h-5 w-5 rounded-full bg-slate-900 text-white text-[11px] flex items-center justify-center font-bold">2</span>
+                            <span>Recommended Diagnostic Orders & Lab Workup</span>
+                          </h4>
+
+                          <button
+                            type="button"
+                            onClick={() => handle1ClickOrderAllTests(treatmentPlan.recommendedOrders)}
+                            className="py-1.5 px-3 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs transition-colors flex items-center space-x-1.5 shadow-xs cursor-pointer self-start sm:self-auto"
+                            title="Place all recommended laboratory & imaging orders in one click"
+                          >
+                            <TestTubes className="h-3.5 w-3.5" />
+                            <span>1-Click Order All Recommended Tests</span>
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                          {treatmentPlan.recommendedOrders.map((order, i) => (
+                            <div
+                              key={i}
+                              className="p-3 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-col justify-between space-y-2 hover:border-sky-300 transition-colors"
+                            >
+                              <div>
+                                <div className="flex items-center justify-between gap-1 mb-1">
+                                  <span
+                                    className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${
+                                      order.priority === 'STAT'
+                                        ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                                        : 'bg-amber-50 text-amber-700 border border-amber-200'
+                                    }`}
+                                  >
+                                    {order.priority}
+                                  </span>
+                                  <span className="text-[10px] text-slate-500 capitalize">{order.category}</span>
+                                </div>
+                                <div className="text-xs font-bold text-slate-900 leading-snug">{order.testName}</div>
+                                <p className="text-[11px] text-slate-500 mt-1 leading-normal">{order.rationale}</p>
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() => handleOrderSingleTest(order)}
+                                className="mt-2 py-1 px-2.5 rounded-lg bg-slate-50 hover:bg-sky-50 text-sky-700 border border-slate-200 hover:border-sky-300 text-[11px] font-bold flex items-center justify-center space-x-1 transition-colors cursor-pointer"
+                              >
+                                <Plus className="h-3 w-3" />
+                                <span>Order This Test</span>
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* 3. Recommended Pharmacotherapy & Prescriptions */}
+                      <div className="space-y-3 pt-2">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                          <div className="flex items-center space-x-2">
+                            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center space-x-2">
+                              <span className="h-5 w-5 rounded-full bg-slate-900 text-white text-[11px] flex items-center justify-center font-bold">3</span>
+                              <span>Recommended Pharmacotherapy & Prescriptions</span>
+                            </h4>
+                            <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 hidden sm:inline-block">
+                              Allergy Screened
+                            </span>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handle1ClickAddAllMedications(treatmentPlan.recommendedMedications)}
+                            className="py-1.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-colors flex items-center space-x-1.5 shadow-xs cursor-pointer self-start sm:self-auto"
+                            title="Add all recommended medications to the prescription list below"
+                          >
+                            <Pill className="h-3.5 w-3.5" />
+                            <span>1-Click Add Medications to Plan</span>
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {treatmentPlan.recommendedMedications.map((med, i) => (
+                            <div
+                              key={i}
+                              className="p-3.5 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-col justify-between space-y-2 hover:border-emerald-300 transition-colors"
+                            >
+                              <div>
+                                <div className="flex items-start justify-between gap-2">
+                                  <div>
+                                    <div className="text-xs font-black text-slate-900">{med.medication}</div>
+                                    <div className="text-[11px] text-emerald-700 font-bold">
+                                      {med.dosage} · {med.route} · {med.frequency}
+                                    </div>
+                                  </div>
+                                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200 shrink-0">
+                                    {med.duration}
+                                  </span>
+                                </div>
+
+                                <div className="mt-2 text-[11px] text-slate-600 space-y-1">
+                                  <p><span className="font-semibold text-slate-700">Indication:</span> {med.indication}</p>
+                                  <p><span className="font-semibold text-slate-700">Instructions:</span> {med.instructions}</p>
+                                  {med.precautions && (
+                                    <p className="text-amber-800 bg-amber-50/60 p-1.5 rounded-lg border border-amber-200/80 font-medium text-[10px]">
+                                      ⚠️ {med.precautions}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() => handleAddSingleMedication(med)}
+                                className="mt-2 py-1 px-2.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-[11px] font-bold flex items-center justify-center space-x-1 transition-colors cursor-pointer"
+                              >
+                                <Plus className="h-3 w-3" />
+                                <span>Add to Prescriptions</span>
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* 4. Differential Diagnoses & Key Rule-Out Tests */}
+                      <div className="space-y-3 pt-2">
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center space-x-2">
+                          <span className="h-5 w-5 rounded-full bg-slate-900 text-white text-[11px] flex items-center justify-center font-bold">4</span>
+                          <span>Clinical Differential Diagnoses & Evidence Rule-Outs</span>
+                        </h4>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {treatmentPlan.differentialDiagnoses.map((diff, i) => (
+                            <div key={i} className="p-3.5 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-1.5">
+                              <div className="flex items-center justify-between gap-1">
+                                <span className="text-xs font-bold text-slate-900">{diff.condition}</span>
+                                <span
+                                  className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase border ${
+                                    diff.probability === 'High'
+                                      ? 'bg-rose-50 text-rose-800 border-rose-200'
+                                      : diff.probability === 'Moderate'
+                                      ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                      : 'bg-slate-100 text-slate-700 border-slate-200'
+                                  }`}
+                                >
+                                  {diff.probability} Probability
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-slate-600">{diff.clinicalRationale}</p>
+                              <div className="text-[10px] text-sky-800 font-semibold bg-sky-50 px-2 py-1 rounded-lg border border-sky-100">
+                                Key Confirmation / Rule-Out Test: <span className="font-bold">{diff.keyRuleOutTest}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* 5. Patient Counseling & Deterioration Red Flags */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                        <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-1.5">
+                          <h5 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center space-x-1.5">
+                            <ShieldCheck className="h-4 w-4 text-emerald-600" />
+                            <span>Patient Counseling & Discharge Advice</span>
+                          </h5>
+                          <p className="text-xs text-slate-700 leading-relaxed font-medium">
+                            {treatmentPlan.counselingAndDischargeAdvice}
+                          </p>
+                        </div>
+
+                        <div className="p-4 rounded-2xl bg-rose-50/60 border border-rose-200 shadow-xs space-y-1.5">
+                          <h5 className="text-xs font-bold text-rose-900 uppercase tracking-wider flex items-center space-x-1.5">
+                            <AlertTriangle className="h-4 w-4 text-rose-600" />
+                            <span>Clinical Red Flags & Escalation Triggers</span>
+                          </h5>
+                          <ul className="space-y-1 text-xs text-rose-800">
+                            {treatmentPlan.redFlagsToWatch.map((flag, i) => (
+                              <li key={i} className="flex items-start space-x-1.5">
+                                <span className="font-bold text-rose-600">•</span>
+                                <span>{flag}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+
+                      {/* 6. Interactive Doctor Clinical Consult Query Box */}
+                      <div className="pt-2 border-t border-slate-200 space-y-3">
+                        <div className="flex items-center space-x-2">
+                          <div className="p-1.5 rounded-lg bg-teal-100 text-teal-800">
+                            <Send className="h-3.5 w-3.5" />
+                          </div>
+                          <div>
+                            <h5 className="text-xs font-bold text-slate-900">
+                              Ask AI Clinical Consult About This Patient
+                            </h5>
+                            <p className="text-[11px] text-slate-500">
+                              Need specific dosing, allergy alternatives, or scenario analysis for this problem? Ask below:
+                            </p>
+                          </div>
+                        </div>
+
+                        <form onSubmit={handleDoctorConsult} className="flex flex-col sm:flex-row gap-2">
+                          <input
+                            type="text"
+                            value={consultQuery}
+                            onChange={(e) => setConsultQuery(e.target.value)}
+                            placeholder="e.g. Alternative antibiotic if penicillin allergy? Or pediatric dosing adjustment?"
+                            className="flex-1 bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-teal-500 shadow-xs"
+                          />
+                          <button
+                            type="submit"
+                            disabled={isConsulting || !consultQuery.trim()}
+                            className="py-2.5 px-4 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-xs transition-colors flex items-center justify-center space-x-1.5 shrink-0 disabled:opacity-40 cursor-pointer"
+                          >
+                            <Send className={`h-3.5 w-3.5 ${isConsulting ? 'animate-pulse' : ''}`} />
+                            <span>{isConsulting ? 'Consulting...' : 'Get Clinical Answer'}</span>
+                          </button>
+                        </form>
+
+                        {/* Quick Question Chips */}
+                        <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+                          <span className="text-slate-400 font-bold">Quick Prompts:</span>
+                          <button
+                            type="button"
+                            onClick={() => handleDoctorConsult(undefined, 'What is the safest alternative antibiotic given patient allergy history?')}
+                            className="px-2 py-0.5 rounded-full bg-white hover:bg-teal-50 text-slate-700 hover:text-teal-800 border border-slate-200 transition-colors cursor-pointer"
+                          >
+                            Allergy-safe alternatives
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDoctorConsult(undefined, 'What renal or geriatric dosage adjustments are indicated for this patient?')}
+                            className="px-2 py-0.5 rounded-full bg-white hover:bg-teal-50 text-slate-700 hover:text-teal-800 border border-slate-200 transition-colors cursor-pointer"
+                          >
+                            Dosage adjustments
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDoctorConsult(undefined, 'What is the expected clinical response timeline and next escalation step?')}
+                            className="px-2 py-0.5 rounded-full bg-white hover:bg-teal-50 text-slate-700 hover:text-teal-800 border border-slate-200 transition-colors cursor-pointer"
+                          >
+                            Response timeline
+                          </button>
+                        </div>
+
+                        {/* Consult Answer Display */}
+                        {consultAnswer && (
+                          <div className="p-4 rounded-2xl bg-teal-50/80 border border-teal-200 text-xs text-slate-800 space-y-2 animate-in fade-in">
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-teal-900 uppercase text-[10px] tracking-wider">
+                                Clinical Consult Assessment
+                              </span>
+                              <span className="text-[10px] font-bold text-teal-700 bg-white px-2 py-0.5 rounded-md border border-teal-200">
+                                {consultAnswer.evidenceLevel}
+                              </span>
+                            </div>
+                            <p className="leading-relaxed font-medium">{consultAnswer.answer}</p>
+                            {consultAnswer.clinicalPearls && consultAnswer.clinicalPearls.length > 0 && (
+                              <div className="pt-2 border-t border-teal-200/80 space-y-1">
+                                <span className="text-[10px] font-bold text-teal-800 uppercase">Clinical Pearls:</span>
+                                <ul className="list-disc list-inside text-[11px] text-teal-900 space-y-0.5">
+                                  {consultAnswer.clinicalPearls.map((pearl, pi) => (
+                                    <li key={pi}>{pearl}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {/* Section A: AI Clinical Decision Support (CDS) */}
                 <div className="bg-white border border-purple-200 rounded-3xl p-6 shadow-xs relative overflow-hidden">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-4">
                     <div className="flex items-center space-x-3">
                       <div className="p-2.5 rounded-xl bg-purple-50 border border-purple-200 text-purple-700">
-                        <Sparkles className="h-5 w-5" />
+                        <Activity className="h-5 w-5" />
                       </div>
                       <div>
-                        <h3 className="text-base font-bold text-slate-900">AI Clinical Decision Support (CDS)</h3>
+                        <h3 className="text-base font-bold text-slate-900">AI Differential Diagnoses & Allergy Screening (CDS)</h3>
                         <p className="text-xs text-slate-500">
                           Differential diagnoses, drug-allergy contraindication checks, and timeline synthesis.
                         </p>
@@ -1321,9 +1927,9 @@ export const DoctorPortal: React.FC<DoctorPortalProps> = ({ user }) => {
               </div>
             ) : (
               <div className="space-y-3">
-                {allLabOrders.map((order) => (
+                {allLabOrders.map((order, idx) => (
                   <div
-                    key={order.id}
+                    key={`${order.id}_${idx}`}
                     className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4"
                   >
                     <div>
@@ -1483,11 +2089,11 @@ export const DoctorPortal: React.FC<DoctorPortalProps> = ({ user }) => {
 
               return (
                 <div className="space-y-4">
-                  {filtered.map((note) => {
+                  {filtered.map((note, idx) => {
                     const isExpanded = expandedNoteId === note.id;
                     return (
                       <div
-                        key={note.id}
+                        key={`${note.id}_${idx}`}
                         className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs space-y-4 transition-all hover:border-emerald-300"
                       >
                         {/* Header */}

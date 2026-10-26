@@ -10,6 +10,7 @@ import {
   AuthSession,
   AcuityLevel,
   VitalSigns,
+  PatientVitalRecord,
 } from '../types';
 
 const STORAGE_KEYS = {
@@ -22,6 +23,7 @@ const STORAGE_KEYS = {
   AI_LOGS: 'pulsecare_ai_logs',
   SESSION: 'pulsecare_session',
   PASSWORD_RESETS: 'pulsecare_password_resets',
+  VITALS_RECORDS: 'pulsecare_vitals_records',
 };
 
 // Helper: SHA-256 password hash using standard browser Web Crypto API
@@ -454,6 +456,175 @@ function getDefaultAppointments(): Appointment[] {
       notes: 'Please bring recent blood pressure logs.',
       status: 'scheduled',
       createdAt: new Date().toISOString(),
+    },
+  ];
+}
+
+export function getDefaultPatientVitalRecords(patientOrUserId?: string): PatientVitalRecord[] {
+  const now = new Date();
+  const cleanId = (patientOrUserId || '').toLowerCase().replace(/^(usr_patient_|pt_)/, '');
+
+  // 10 chronological data points over 14 days representing realistic vitals progression
+  return [
+    {
+      id: `vrec_${cleanId}_1`,
+      timestamp: new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString(),
+      dateLabel: 'Today',
+      timeLabel: '02:30 PM',
+      heartRate: 72,
+      systolicBP: 118,
+      diastolicBP: 76,
+      o2Sat: 99,
+      temperature: 98.4,
+      bloodSugar: 94,
+      respRate: 16,
+      source: 'patient_log',
+      status: 'optimal',
+      notes: 'Afternoon resting check. Mild headache resolved, feeling calm.',
+    },
+    {
+      id: `vrec_${cleanId}_2`,
+      timestamp: new Date(now.getTime() - 7 * 60 * 60 * 1000).toISOString(),
+      dateLabel: 'Today',
+      timeLabel: '07:45 AM',
+      heartRate: 68,
+      systolicBP: 120,
+      diastolicBP: 78,
+      o2Sat: 98,
+      temperature: 98.6,
+      bloodSugar: 92,
+      respRate: 15,
+      source: 'patient_log',
+      status: 'optimal',
+      notes: 'Fasting morning baseline. Good restful sleep.',
+    },
+    {
+      id: `vrec_${cleanId}_3`,
+      timestamp: new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString(),
+      dateLabel: 'Yesterday',
+      timeLabel: '08:15 AM',
+      heartRate: 74,
+      systolicBP: 122,
+      diastolicBP: 79,
+      o2Sat: 98,
+      temperature: 98.6,
+      bloodSugar: 96,
+      respRate: 16,
+      source: 'wearable',
+      status: 'optimal',
+      notes: 'Smart health monitor sync. Normal sinus rhythm.',
+    },
+    {
+      id: `vrec_${cleanId}_4`,
+      timestamp: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+      dateLabel: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      timeLabel: '10:00 AM',
+      heartRate: 75,
+      systolicBP: 124,
+      diastolicBP: 80,
+      o2Sat: 99,
+      temperature: 98.5,
+      bloodSugar: 98,
+      respRate: 16,
+      source: 'hospital',
+      status: 'optimal',
+      notes: 'Outpatient clinical triage and baseline consultation.',
+    },
+    {
+      id: `vrec_${cleanId}_5`,
+      timestamp: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+      dateLabel: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      timeLabel: '06:30 PM',
+      heartRate: 79,
+      systolicBP: 128,
+      diastolicBP: 82,
+      o2Sat: 97,
+      temperature: 99.0,
+      bloodSugar: 104,
+      respRate: 17,
+      source: 'patient_log',
+      status: 'elevated',
+      notes: 'Mild sinus congestion and headache before evening rest.',
+    },
+    {
+      id: `vrec_${cleanId}_6`,
+      timestamp: new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+      dateLabel: new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      timeLabel: '08:30 AM',
+      heartRate: 71,
+      systolicBP: 119,
+      diastolicBP: 77,
+      o2Sat: 98,
+      temperature: 98.6,
+      bloodSugar: 95,
+      respRate: 15,
+      source: 'wearable',
+      status: 'optimal',
+      notes: 'Morning biometric automated sync. Resting vitals.',
+    },
+    {
+      id: `vrec_${cleanId}_7`,
+      timestamp: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+      dateLabel: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      timeLabel: '09:00 AM',
+      heartRate: 73,
+      systolicBP: 121,
+      diastolicBP: 78,
+      o2Sat: 99,
+      temperature: 98.4,
+      bloodSugar: 93,
+      respRate: 16,
+      source: 'patient_log',
+      status: 'optimal',
+      notes: 'Weekly self-tracking check. Vitals stable.',
+    },
+    {
+      id: `vrec_${cleanId}_8`,
+      timestamp: new Date(now.getTime() - 9 * 24 * 60 * 60 * 1000).toISOString(),
+      dateLabel: new Date(now.getTime() - 9 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      timeLabel: '07:30 AM',
+      heartRate: 70,
+      systolicBP: 117,
+      diastolicBP: 75,
+      o2Sat: 99,
+      temperature: 98.3,
+      bloodSugar: 91,
+      respRate: 14,
+      source: 'patient_log',
+      status: 'optimal',
+      notes: 'Morning resting vitals post-hydration.',
+    },
+    {
+      id: `vrec_${cleanId}_9`,
+      timestamp: new Date(now.getTime() - 11 * 24 * 60 * 60 * 1000).toISOString(),
+      dateLabel: new Date(now.getTime() - 11 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      timeLabel: '08:45 AM',
+      heartRate: 76,
+      systolicBP: 125,
+      diastolicBP: 81,
+      o2Sat: 98,
+      temperature: 98.7,
+      bloodSugar: 101,
+      respRate: 16,
+      source: 'wearable',
+      status: 'elevated',
+      notes: 'Slightly elevated work stress reading.',
+    },
+    {
+      id: `vrec_${cleanId}_10`,
+      timestamp: new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000).toISOString(),
+      dateLabel: new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      timeLabel: '08:00 AM',
+      heartRate: 72,
+      systolicBP: 120,
+      diastolicBP: 78,
+      o2Sat: 99,
+      temperature: 98.4,
+      bloodSugar: 94,
+      respRate: 15,
+      source: 'patient_log',
+      status: 'optimal',
+      notes: 'Two-week historical baseline recording.',
     },
   ];
 }
@@ -1000,6 +1171,107 @@ class StorageManager {
     delete resets[token];
     localStorage.setItem(STORAGE_KEYS.PASSWORD_RESETS, JSON.stringify(resets));
     return true;
+  }
+
+  // Patient Historical Vitals & Trends
+  getPatientVitalsHistory(patientOrUserId: string): PatientVitalRecord[] {
+    const cleanId = (patientOrUserId || '').toLowerCase().replace(/^(usr_patient_|pt_)/, '');
+    const key = `pulsecare_vitals_history_${cleanId}`;
+    const raw = localStorage.getItem(key);
+    if (!raw) {
+      // Check legacy local storage ervision_vitals_ if present
+      const legacyRaw = localStorage.getItem(`ervision_vitals_${patientOrUserId}`);
+      const defaults = getDefaultPatientVitalRecords(cleanId);
+      if (legacyRaw) {
+        try {
+          const parsedLegacy = JSON.parse(legacyRaw);
+          if (Array.isArray(parsedLegacy) && parsedLegacy.length > 0) {
+            const mappedLegacy: PatientVitalRecord[] = parsedLegacy.map((item: any, idx: number) => {
+              const parts = (item.bp || '120/80').split('/');
+              return {
+                id: `legacy_${Date.now()}_${idx}`,
+                timestamp: new Date().toISOString(),
+                dateLabel: item.date || 'Recent',
+                timeLabel: 'Logged',
+                heartRate: Number(item.hr) || 72,
+                systolicBP: parseInt(parts[0] || '120', 10),
+                diastolicBP: parseInt(parts[1] || '80', 10),
+                o2Sat: 98,
+                temperature: Number(item.temp) || 98.6,
+                bloodSugar: Number(item.sugar) || 95,
+                respRate: 16,
+                source: 'patient_log' as const,
+                status: item.status?.toLowerCase().includes('optimal') ? ('optimal' as const) : ('elevated' as const),
+                notes: 'Quick manual log',
+              };
+            });
+            const merged = [...mappedLegacy, ...defaults];
+            localStorage.setItem(key, JSON.stringify(merged));
+            return merged;
+          }
+        } catch {
+          // ignore
+        }
+      }
+      localStorage.setItem(key, JSON.stringify(defaults));
+      return defaults;
+    }
+
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+      const defaults = getDefaultPatientVitalRecords(cleanId);
+      localStorage.setItem(key, JSON.stringify(defaults));
+      return defaults;
+    } catch {
+      return getDefaultPatientVitalRecords(cleanId);
+    }
+  }
+
+  savePatientVitalRecord(
+    patientOrUserId: string,
+    record: Omit<PatientVitalRecord, 'id' | 'timestamp' | 'dateLabel' | 'timeLabel'> & {
+      timestamp?: string;
+      dateLabel?: string;
+      timeLabel?: string;
+    }
+  ): PatientVitalRecord {
+    const cleanId = (patientOrUserId || '').toLowerCase().replace(/^(usr_patient_|pt_)/, '');
+    const currentHistory = this.getPatientVitalsHistory(cleanId);
+    const now = new Date();
+    const newRecord: PatientVitalRecord = {
+      id: `vrec_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      timestamp: record.timestamp || now.toISOString(),
+      dateLabel:
+        record.dateLabel ||
+        now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      timeLabel:
+        record.timeLabel ||
+        now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      heartRate: record.heartRate,
+      systolicBP: record.systolicBP,
+      diastolicBP: record.diastolicBP,
+      o2Sat: record.o2Sat || 98,
+      temperature: record.temperature || 98.6,
+      bloodSugar: record.bloodSugar || 95,
+      respRate: record.respRate || 16,
+      source: record.source || 'patient_log',
+      status: record.status || 'optimal',
+      notes: record.notes,
+    };
+
+    const updated = [newRecord, ...currentHistory];
+    localStorage.setItem(`pulsecare_vitals_history_${cleanId}`, JSON.stringify(updated));
+    return newRecord;
+  }
+
+  resetPatientVitals(patientOrUserId: string): PatientVitalRecord[] {
+    const cleanId = (patientOrUserId || '').toLowerCase().replace(/^(usr_patient_|pt_)/, '');
+    const defaults = getDefaultPatientVitalRecords(cleanId);
+    localStorage.setItem(`pulsecare_vitals_history_${cleanId}`, JSON.stringify(defaults));
+    return defaults;
   }
 }
 
